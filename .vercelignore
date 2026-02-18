@@ -1,6 +1,7 @@
 *
 !index.html
 !Build/**
+!Deploy_Builds/**
 !TemplateData/**
 !vercel.json
 !README.md
