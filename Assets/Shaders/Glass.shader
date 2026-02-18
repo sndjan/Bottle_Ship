@@ -1,21 +1,26 @@
-Shader "Custom/GlassFresnel" {
+// Glass shader for the bottle surface
+// Uses Fresnel + Blinn-Phong specular to fake glass transparency.
+// Fresnel makes the edges more opaque (like real glass), center stays mostly see-through.
+// Based on the Fresnel and transparency concepts from Exercise 2 and 3.
+
+Shader "Custom/Glass" {
     Properties {
-        _BaseColor      ("Base Color (Tint)", Color) = (0.8, 0.95, 1.0, 0.08)
+        _BaseColor      ("Base Color (Tint)", Color) = (0.357, 0.247, 0.020, 0.08)
         _FresnelColor   ("Fresnel Color", Color)     = (1.0, 1.0, 1.0, 1.0)
-        _FresnelPower   ("Fresnel Power", Float)     = 5.0
-        _SpecPower      ("Specular Power", Float)    = 64.0
-        _SpecIntensity  ("Spec Intensity", Float)    = 1.0
-        _Alpha          ("Base Alpha", Range(0,1))   = 0.08
+        _FresnelPower   ("Fresnel Power", Float)     = 6.0
+        _SpecPower      ("Specular Power", Float)    = 100.0
+        _SpecIntensity  ("Spec Intensity", Float)    = 0.15
+        _Alpha          ("Base Alpha", Range(0,1))   = 0.8
     }
 
     SubShader {
-        // Transparent Queue wie im Transparency-Exercise
-        Tags { "Queue"="Transparent" "RenderType"="Transparent" }  // :contentReference[oaicite:4]{index=4}
+        // Transparent queue - draws after all opaque geometry (same idea as Exercise 3)
+        Tags { "Queue"="Transparent" "RenderType"="Transparent" }
 
         Pass {
-            // Für klassische Transparenz: kein Depth Write + Alpha Blending
+            // No depth write + alpha blending for transparency
             ZWrite Off
-            Blend SrcAlpha OneMinusSrcAlpha  // :contentReference[oaicite:5]{index=5}
+            Blend SrcAlpha OneMinusSrcAlpha
 
             CGPROGRAM
             #pragma vertex Vert
@@ -43,12 +48,10 @@ Shader "Custom/GlassFresnel" {
             VertexOutput Vert (VertexInput input) {
                 VertexOutput output;
 
-                // Object -> Clip (wie in den Exercises)
-                output.positionCS = UnityObjectToClipPos(input.positionOS);  // :contentReference[oaicite:6]{index=6}
-
-                // WorldPos & WorldNormal (wie in Exercise 2)
-                output.worldPos = mul(unity_ObjectToWorld, input.positionOS).xyz; // :contentReference[oaicite:7]{index=7}
-                output.normalWS = UnityObjectToWorldNormal(input.normalOS);       // :contentReference[oaicite:8]{index=8}
+                // Standard transformations (same as in the exercises)
+                output.positionCS = UnityObjectToClipPos(input.positionOS);
+                output.worldPos = mul(unity_ObjectToWorld, input.positionOS).xyz;
+                output.normalWS = UnityObjectToWorldNormal(input.normalOS);
 
                 return output;
             }
@@ -56,31 +59,31 @@ Shader "Custom/GlassFresnel" {
             float4 Frag (VertexOutput input) : SV_Target {
                 float3 N = normalize(input.normalWS);
 
-                // Unity Built-ins: Light & Camera (wie bei euren Lighting-Shaders)
+                // Light & view direction (same setup as Exercise 2)
                 float3 L = normalize(_WorldSpaceLightPos0.xyz);
                 float3 V = normalize(_WorldSpaceCameraPos - input.worldPos);
 
-                // 1) Fresnel: stark bei flachem Winkel (Kante)
+                // Fresnel: edges glow more at flat viewing angles
                 // f = (1 - dot(N,V))^power
                 float NdotV = saturate(dot(N, V));
                 float fresnel = pow(1.0 - NdotV, _FresnelPower);
 
-                // 2) Minimal-Diffuse (Glas ist eher wenig diffus, aber für "Lesbarkeit" etwas Licht)
+                // Minimal diffuse - glass shouldn't be very diffuse, but a bit helps readability
                 float NdotL = saturate(dot(N, L));
                 float diffuse = max(0.05, NdotL);
 
-                // 3) Simple Specular (Blinn-Phong)
+                // Blinn-Phong specular (half-vector approach)
                 float3 H = normalize(L + V);
                 float spec = pow(saturate(dot(N, H)), _SpecPower) * _SpecIntensity;
 
-                // 4) Farbe: BaseTint + Fresnel-Glanz + Spec
+                // Combine: base tint + fresnel glow + specular
                 float3 baseTint = _BaseColor.rgb * diffuse;
                 float3 edgeTint = _FresnelColor.rgb * fresnel;
 
                 float3 color = baseTint + edgeTint + spec;
 
-                // 5) Alpha: Grund-Alpha + (optional) mehr Opazität an Kanten durch Fresnel
-                // -> wirkt "glasiger", weil Kanten stärker sichtbar sind
+                // Alpha: base alpha + extra opacity at edges from fresnel
+                // Makes the glass edges more visible, which looks more realistic
                 float alpha = saturate(_Alpha + fresnel * (1.0 - _Alpha));
 
                 return float4(color, alpha);

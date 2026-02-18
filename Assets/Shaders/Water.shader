@@ -1,33 +1,41 @@
+// Water surface shader
+// Animates waves using 4 layered sine waves with different directions and frequencies.
+// Two-pass approach: a depth prepass (writes depth, no color) and a color pass (ZTest Equal).
+// This avoids transparent sorting issues while still allowing alpha blending.
+// Foam around objects in the water is done by comparing scene depth vs water depth
+// (same idea as soft particles). The wave functions are also mirrored in WaterBob.cs
+// so C# objects (boat, barrels) can float on the surface.
+
 Shader "Custom/WaterCube_FrontOnly" {
     Properties {
         _BaseColor ("Base Color", Color) = (0.06, 0.22, 0.30, 0.88)
 
         // Waves (match your plane shader)
-        _WaveAmp ("Wave Amplitude", Float) = 0.18
-        _WaveFreq ("Wave Frequency", Float) = 1.4
-        _WaveSpeed ("Wave Speed", Float) = 1.1
+        _WaveAmp ("Wave Amplitude", Float) = 0.225
+        _WaveFreq ("Wave Frequency", Float) = 1.9
+        _WaveSpeed ("Wave Speed", Float) = 3.5
         _Choppy ("Choppiness (normal strength)", Float) = 1.0
         _WaveSeed ("Wave Seed", Float) = 3.7
 
         // Specular / Fresnel
-        _Shininess ("Shininess", Float) = 96
-        _FresnelPower ("Fresnel Power", Float) = 4.5
-        _SpecStrength ("Spec Strength", Float) = 0.9
+        _Shininess ("Shininess", Float) = 90
+        _FresnelPower ("Fresnel Power", Float) = 4.0
+        _SpecStrength ("Spec Strength", Float) = 0.2
 
         // Opacity (nearly opaque, but adjustable)
-        _Opacity ("Opacity", Range(0,1)) = 0.92
+        _Opacity ("Opacity", Range(0,1)) = 1.0
 
         // Hard cutoff plane (world-space Y). Anything below is discarded.
-        _CutoffY ("Cutoff Height (World Y)", Float) = -9999
+        _CutoffY ("Cutoff Height (World Y)", Float) = 7
 
         // -------- FOAM (around intersecting objects) --------
         _FoamColor ("Foam Color", Color) = (1,1,1,1)
-        _FoamWidth ("Foam Width (Depth)", Float) = 0.18
-        _FoamPower ("Foam Power", Float) = 2.0
+        _FoamWidth ("Foam Width (Depth)", Float) = 0.2
+        _FoamPower ("Foam Power", Float) = 1.0
         _FoamStrength ("Foam Strength", Range(0,2)) = 1.0
-        _FoamNoiseScale ("Foam Noise Scale", Float) = 1.6
-        _FoamNoiseSpeed ("Foam Noise Speed", Float) = 0.35
-        _FoamAlphaBoost ("Foam Alpha Boost", Range(0,1)) = 0.15
+        _FoamNoiseScale ("Foam Noise Scale", Float) = 1.0
+        _FoamNoiseSpeed ("Foam Noise Speed", Float) = 1.0
+        _FoamAlphaBoost ("Foam Alpha Boost", Range(0,1)) = 0.5
     }
 
     SubShader {
@@ -48,7 +56,6 @@ Shader "Custom/WaterCube_FrontOnly" {
 
             struct VertexInput {
                 float4 positionOS : POSITION;
-                float3 normalOS   : NORMAL;
             };
 
             struct VertexOutput {
@@ -56,7 +63,7 @@ Shader "Custom/WaterCube_FrontOnly" {
                 float  worldY     : TEXCOORD0;   // for cutoff
             };
 
-            float _WaveAmp, _WaveFreq, _WaveSpeed, _Choppy, _WaveSeed;
+            float _WaveAmp, _WaveFreq, _WaveSpeed, _WaveSeed;
             float _CutoffY;
 
             float Hash21(float2 p) {
@@ -133,7 +140,7 @@ Shader "Custom/WaterCube_FrontOnly" {
             #pragma fragment Frag
             #include "UnityCG.cginc"
 
-            // Needed for _CameraDepthTexture sampling (Built-in RP)
+            // Depth texture for foam depth comparison
             UNITY_DECLARE_DEPTH_TEXTURE(_CameraDepthTexture);
 
             struct VertexInput {
@@ -271,8 +278,9 @@ Shader "Custom/WaterCube_FrontOnly" {
 
                 float alpha = saturate(_Opacity * _BaseColor.a);
 
-                // -------- FOAM around objects inside water (depth intersection foam) --------
-                // Sample scene depth from the camera depth texture (opaque objects).
+                // -------- FOAM (depth-based intersection foam) --------
+                // Compare the scene depth behind the water with the water surface depth.
+                // Small difference = geometry close to water surface = foam.
                 float2 uv = (i.screenPos.xy / i.screenPos.w);
 
                 // Raw depth from texture -> linear eye depth
