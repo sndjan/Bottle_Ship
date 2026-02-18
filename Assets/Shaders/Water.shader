@@ -154,6 +154,7 @@ Shader "Custom/WaterCube_FrontOnly" {
                 float3 normalWS   : TEXCOORD1;
                 float  worldY     : TEXCOORD2;
                 float4 screenPos  : TEXCOORD3;  // for depth-compare foam
+                float  eyeDepth   : TEXCOORD4;
             };
 
             float4 _BaseColor;
@@ -241,6 +242,7 @@ Shader "Custom/WaterCube_FrontOnly" {
                 float4 posCS = UnityWorldToClipPos(worldPos);
                 o.positionCS = posCS;
                 o.screenPos = ComputeScreenPos(posCS);
+                o.eyeDepth = -mul(UNITY_MATRIX_V, float4(worldPos, 1.0)).z;
 
                 float3 geomN = normalize(UnityObjectToWorldNormal(input.normalOS));
                 float3 waveN = WaveNormalWS(worldPos, t);
@@ -279,16 +281,13 @@ Shader "Custom/WaterCube_FrontOnly" {
                 float alpha = saturate(_Opacity * _BaseColor.a);
 
                 // -------- FOAM (depth-based intersection foam) --------
-                // Compare the scene depth behind the water with the water surface depth.
-                // Small difference = geometry close to water surface = foam.
-                float2 uv = (i.screenPos.xy / i.screenPos.w);
-
-                // Raw depth from texture -> linear eye depth
-                float sceneRaw = SAMPLE_DEPTH_TEXTURE(_CameraDepthTexture, uv);
+                // Compare scene depth against this water surface depth in eye space.
+                // Use projected sampling for _CameraDepthTexture (works better with WebGL).
+                float sceneRaw = SAMPLE_DEPTH_TEXTURE_PROJ(_CameraDepthTexture, UNITY_PROJ_COORD(i.screenPos));
                 float sceneEye = LinearEyeDepth(sceneRaw);
 
-                // Water surface eye depth at this pixel
-                float waterEye = LinearEyeDepth(i.screenPos.z / i.screenPos.w);
+                // Water eye depth computed in vertex stage from view space.
+                float waterEye = i.eyeDepth;
 
                 // If there is geometry BEHIND the water surface, sceneEye > waterEye.
                 // Small positive difference => intersection region => foam.

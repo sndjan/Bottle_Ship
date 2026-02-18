@@ -1,0 +1,5 @@
+- !index.html
+  !Build/**
+  !TemplateData/**
+  !vercel.json
+  !README.md
