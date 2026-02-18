@@ -40,7 +40,7 @@
       tabindex="-1"
       style="width: 100vw; height: 100vh; background: #231f20"
     ></canvas>
-    <script src="Build/Bottle_Ship_Build.loader.js"></script>
+    <script src="Deploy_Builds/Build/Deploy_Builds.loader.js"></script>
     <script>
       if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
         // Mobile device style: fill the whole browser client area with the game canvas:
@@ -59,10 +59,10 @@
       }
 
       createUnityInstance(document.querySelector("#unity-canvas"), {
-        dataUrl: "Build/Bottle_Ship_Build.data.unityweb",
-        frameworkUrl: "Build/Bottle_Ship_Build.framework.js.unityweb",
-        codeUrl: "Build/Bottle_Ship_Build.wasm.unityweb",
-        streamingAssetsUrl: "StreamingAssets",
+        dataUrl: "Deploy_Builds/Build/Deploy_Builds.data.unityweb",
+        frameworkUrl: "Deploy_Builds/Build/Deploy_Builds.framework.js.unityweb",
+        codeUrl: "Deploy_Builds/Build/Deploy_Builds.wasm.unityweb",
+        streamingAssetsUrl: "Deploy_Builds/StreamingAssets",
         companyName: "DefaultCompany",
         productName: "Bottle_Ship",
         productVersion: "0.1",
